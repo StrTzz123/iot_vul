@@ -53,7 +53,7 @@ case 100:   // 0x64 → /NAS_API_REMOVE_USER
     return FUN_0043db10(srv, con, p_d);
 ```
 
-![image.png](image/image.png)
+![image-20260512163729575](./image-20260512163729575.png)
 
 The HTTP handler FUN_0043db10 delegates to FUN_0043a640:
 
@@ -64,13 +64,15 @@ FUN_0043a640(srv, con);
 
 FUN_0043a640 extracts `name` and calls the remove flow:
 
+![image-20260512163849959](./image-20260512163849959.png)
+
 ```c
 // FUN_0043a640 — extract "name" and call remove
 FUN_004373f0(con, "name", &name_buf);  // extract "name" from HTTP
 FUN_0042dfe0(name);                     // → remove user flow
 ```
 
-![image.png](image/image%201.png)
+![image-20260512164513979](./image-20260512164513979.png)
 
 FUN_0042dfe0 — the remove user orchestrator, calls three sinks with the raw name:
 
@@ -82,6 +84,8 @@ FUN_0042d550(name);      // 💣 smbpasswd -x
 ```
 
 **Sink 1+2: FUN_0042d420 — `deluser %s` and `userdel -r -f %s` (0x80-byte buffers)**
+
+![image-20260512164638559](./image-20260512164638559.png)
 
 ```c
 // FUN_0042d420(name) @ 0x42d494 + 0x42d4c0
@@ -100,7 +104,7 @@ snprintf(cmd, 0x80, "smbpasswd -x %s", name);     // NO quoting
 system(cmd);                                       // 💣
 ```
 
-![image.png](image/image%202.png)
+![image-20260512164732732](./image-20260512164732732.png)
 
 Confirmed strings in the binary:
 

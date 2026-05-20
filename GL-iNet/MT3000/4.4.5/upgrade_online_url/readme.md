@@ -14,29 +14,31 @@ The reported vulnerable flow is:
 
 ```text
 Authenticated user
-  -> POST /rpc
-  -> calls upgrade.upgrade_online(url=<attacker-controlled value>)
-  -> RPC layer passes the URL to /usr/bin/one_click_upgrade
-  -> one_click_upgrade assigns the first argument to firmware_path
-  -> curl is executed with the firmware_path value
-  -> insufficient quoting/sanitization may allow shell interpretation
-  -> command execution occurs with root privileges
+  -> POST /rpc challenge → login → sid
+  -> POST /rpc call("upgrade","upgrade_online",{"url":"<payload>",...})
+  -> oui-rpc.lua dispatches to upgrade.upgrade_online(params)
+  -> firmware_url = params.url  (zero validation)
+  -> cmd = string.format('/usr/bin/one_click_upgrade %s %s %s %s &',
+         firmware_url, sha256, keep_config, keep_package)
+  -> os.execute(cmd)  →  /bin/sh -c "... $(...) ..."
+  -> $() command substitution expands BEFORE one_click_upgrade starts
+  -> injected command executes with root privileges
   -> sha256 verification fails afterward and the firmware upgrade stops
 ```
 
-The source notes indicate that the `firmware_url` validation does not adequately prevent shell-sensitive input. The observed validation pattern is:
-```python
-"^https?://[%w-_%.%?%.:/%+=&]+$"
-```
+The `upgrade_online` function in `/usr/lib/oui-httpd/rpc/upgrade` assigns the attacker-supplied `params.url` directly to `firmware_url` with no format validation or character filtering:
+
 ![image.png](image.png)
 
-The URL value is then passed into the upgrade workflow.
+The URL value is then passed into the upgrade workflow via bare `%s` string formatting.
 
 ![image.png](image%201.png)
 
-Although the RPC handler appears to place the URL argument inside single quotes when constructing the command, the value is later assigned inside `/usr/bin/one_click_upgrade` and used again in a shell command.
+The `string.format()` call places the URL directly into the command string with no quoting or escaping. The constructed command is executed via `os.execute()` which invokes `/bin/sh -c`, where `$()` command substitution is expanded before `one_click_upgrade` begins:
+
 ![image.png](image%203.png)
-The reported issue is that `firmware_path` is expanded without adequate quoting when passed to `curl`:
+
+The shell script `/usr/bin/one_click_upgrade` receives the (already-expanded) arguments. The unquoted `$firmware_path` at line 44 provides a secondary, independent injection surface:
 
 ![image.png](image%202.png)
 

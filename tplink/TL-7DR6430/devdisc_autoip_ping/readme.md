@@ -1,7 +1,11 @@
 Submittion Date: 2026.6.24 
+
 Vendor: TP-Link TL-7DR6430 
+
 Version: V1.0_1.0.17 
+
 Firmware: TL_7DR6430_V1.0_1.0.17_Build_20250919_Rel.56588.bin 
+
 Download Link: https://resource.tp-link.com.cn/m/productClass/product_document?id=1759992600856491   
 
 
